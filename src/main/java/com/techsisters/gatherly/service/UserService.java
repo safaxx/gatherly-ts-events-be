@@ -1,5 +1,7 @@
 package com.techsisters.gatherly.service;
 
+import java.util.Date;
+
 import org.springframework.stereotype.Service;
 
 import com.techsisters.gatherly.entity.User;
@@ -18,6 +20,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final AirtableService airtableService;
+    private final EmailService emailService;
 
     /*
      * Check if user is a registered Techsisters member via Airtable
@@ -29,14 +32,7 @@ public class UserService {
         Integer otp = null;
 
         User user = findByEmail(email);
-        if (user != null) {
-
-            // generate OTP and send email
-            otp = UserUtil.generate6DigitCode();
-            user.setOtp(otp);
-            userRepository.save(user);
-
-        } else {
+        if (user == null) {
             Record userRecord = airtableService.findByEmail(email);
 
             if (userRecord != null) {
@@ -48,16 +44,24 @@ public class UserService {
                 user = copyAirtableData(user, userRecord);
                 log.info("User data saved/updated in DB: {}", user.getId());
 
-                // generate OTP
-                otp = UserUtil.generate6DigitCode();
-                user.setOtp(otp);
-                userRepository.save(user);
-
             } else {
                 log.info("User with email {} is not a Techsisters member", email);
                 throw new IllegalArgumentException("User " + email + " is not a Techsisters member");
             }
+
+        } else {
+            log.info("User with email {} already exists in DB", email);
         }
+
+        // generate OTP
+        otp = UserUtil.generate6DigitCode();
+        user.setOtp(otp);
+        user.setOtpCreatedDate(new Date());
+        userRepository.save(user);
+
+        // send OTP email
+        emailService.sendOtpEmail(email, user.getName(), String.valueOf(otp));
+       
 
         return otp;
     }

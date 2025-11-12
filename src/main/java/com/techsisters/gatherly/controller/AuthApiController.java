@@ -26,8 +26,7 @@ public class AuthApiController {
         ResponseDTO response = new ResponseDTO();
 
         try {
-            Integer otp = userService.generateOTP(request.getEmail());
-            // TODO: send email notification with OTP
+            userService.generateOTP(request.getEmail());
             response.setSuccess(true);
             response.setMessage("A 6-digit OTP has been sent to " + request.getEmail() + ".");
         } catch (Exception e) {
