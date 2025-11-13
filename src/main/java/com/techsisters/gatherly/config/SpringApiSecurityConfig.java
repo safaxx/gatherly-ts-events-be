@@ -5,18 +5,26 @@ import java.util.Arrays;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import lombok.AllArgsConstructor;
+
+@AllArgsConstructor
 @Configuration
 @EnableWebSecurity
 public class SpringApiSecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthFilter;
+    private final AuthenticationProvider authenticationProvider;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -29,6 +37,7 @@ public class SpringApiSecurityConfig {
                 // This line tells Spring Security to use the 'corsConfigurationSource' bean
                 // defined below.
                 .cors(Customizer.withDefaults())
+                .authenticationProvider(authenticationProvider)
 
                 // Configure Session Management to be STATELESS
                 // This is essential for REST APIs.
@@ -39,24 +48,18 @@ public class SpringApiSecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // Whitelist your "send-otp" and other auth endpoints
-                        .requestMatchers("/api/auth/send-otp").permitAll()
+                        .requestMatchers("/api/auth/**").permitAll()
 
                         // Whitelist static resources
                         .requestMatchers("/", "/index.html", "/static/**").permitAll()
 
-                        // Whitelist Swagger/OpenAPI docs (if you use them)
-                        .requestMatchers(
-                                "/v3/api-docs/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html")
-                        .permitAll()
-
                         // --- SECURE (PRIVATE) ENDPOINTS ---
                         // All other requests must be authenticated
-                        .anyRequest().authenticated());
+                        .anyRequest().authenticated())
 
-        // Here you would also add your JWT filter:
-        // .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .exceptionHandling(exceptions -> exceptions.accessDeniedHandler(new ApiAccessDeniedHandler())
+                        .authenticationEntryPoint(new ApiAuthenticationEntryPoint()));
 
         return http.build();
     }
@@ -84,4 +87,5 @@ public class SpringApiSecurityConfig {
 
         return source;
     }
+
 }
